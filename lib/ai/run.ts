@@ -44,7 +44,7 @@ export async function run(initialCapital?: number) {
 
   // Define supported cryptocurrencies for analysis and trading
   const supportedSymbols = [
-    "BTC/USDT"
+    "ETH/USDT"
   ];
 
   try {
