@@ -44,11 +44,7 @@ export async function run(initialCapital?: number) {
 
   // Define supported cryptocurrencies for analysis and trading
   const supportedSymbols = [
-    "BTC/USDT",
-    "ETH/USDT",
-    "SOL/USDT",
-    "BNB/USDT",
-    "DOGE/USDT"
+    "BTC/USDT"
   ];
 
   try {
@@ -82,6 +78,7 @@ export async function run(initialCapital?: number) {
     // Generate trading prompt with supported symbols (now supports multi-symbol decisions)
     const supportedSymbolEnums = [Symbol.BTC, Symbol.ETH, Symbol.SOL, Symbol.BNB, Symbol.DOGE];
     const tradingPrompt = getTradingPrompt(supportedSymbolEnums);
+
 
     // AI调用超时和多模型回退机制
     let object, reasoning;
@@ -200,7 +197,17 @@ export async function run(initialCapital?: number) {
       throw new Error("AI response missing 'decisions' array");
     }
 
-    console.log(`📋 ${decisions.length} decision(s)`);
+    console.log(`-----------------------userPrompt------------------------------------------------------`);
+    console.log(`userPrompt: ${userPrompt}`);
+    console.log(`-----------------------------------------------------------------------------`);
+
+    console.log(`--------------------------tradingPrompt----------------------------------------------------`);
+    console.log(`tradingPrompt: ${tradingPrompt}`);
+    console.log(`------------------------------------------------------------------------------`);
+    //打印decisions详情
+    console.log(`----------------------------decisionsResult-------------------------------------------------`);
+    console.log(`-------------------📋 decisions: ${JSON.stringify(decisions)}`);
+    console.log(`-----------------------------------------------------------------------------`);
 
     // Check daily loss limit before any trade
     const totalUnrealizedPnl = accountInformationAndPerformance.positions.reduce(
@@ -297,7 +304,7 @@ export async function run(initialCapital?: number) {
         const tradingSymbol = `${object.symbol}/USDT`;
 
         // 🔧 修复：dry-run模式下也要真正执行买入（在测试网）
-        console.log(`💰 Executing buy ${object.symbol} (Mode: ${riskConfig.tradingMode})...`);
+        console.log(`-------------------------------💰 Executing buy ${object.symbol} (Mode: ${riskConfig.tradingMode})...`);
         buyResult = await buy({
           symbol: tradingSymbol,
           amount: object.buy.amount,
