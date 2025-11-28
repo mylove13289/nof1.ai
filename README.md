@@ -21,6 +21,10 @@ Copy the five files "lib\ai\run.ts", "prisma\schma.prisma", "component\models_vi
 npx prisma db push
 npx prisma generate
 ```
+
+
+
+
 Then run `npm run dev` to use it.
 ## pipeline
 Trading logic: Real-time market data is retrieved from the official API. The DeepSeek LLMs API is called every three minutes. The large model receives a carefully prepared input prompt, provides an analyzed strategy, and then the exchange API is called to execute the trades.
