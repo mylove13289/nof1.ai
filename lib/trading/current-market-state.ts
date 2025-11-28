@@ -214,6 +214,8 @@ export async function getCurrentMarketState(
 
     const ohlcv1m = await withRetry(() => fetchKlines("1m", 100));
     const ohlcv4h = await withRetry(() => fetchKlines("4h", 100));
+    // 获取15分钟K线数�?
+    const ohlcv15m = await withRetry(() => fetchKlines("15m", 100));
 
     // Extract price data from 1-minute candles
     const closes1m = ohlcv1m.map((candle: number[]) => Number(candle[4])); // Close prices
@@ -223,6 +225,13 @@ export async function getCurrentMarketState(
     const highs4h = ohlcv4h.map((candle: number[]) => Number(candle[2]));
     const lows4h = ohlcv4h.map((candle: number[]) => Number(candle[3]));
     const volumes4h = ohlcv4h.map((candle: number[]) => Number(candle[5]));
+
+    // Extract price data from 4-hour candles
+    const closes15m = ohlcv15m.map((candle: number[]) => Number(candle[4]));
+    const highs15m = ohlcv15m.map((candle: number[]) => Number(candle[2]));
+    const lows15m = ohlcv15m.map((candle: number[]) => Number(candle[3]));
+    const volumes15m = ohlcv15m.map((candle: number[]) => Number(candle[5]));
+
 
     // Calculate intraday indicators (1-minute timeframe)
     const ema20_1m = calculateEMA(closes1m, 20);
@@ -238,6 +247,15 @@ export async function getCurrentMarketState(
     const macd_4h = calculateMACD(closes4h);
     const rsi14_4h = calculateRSI(closes4h, 14);
 
+    // Calculate longer-term indicators (4-hour timeframe)
+    const ema20_15m = calculateEMA(closes15m, 20);
+    const ema50_15m = calculateEMA(closes15m, 50);
+    const atr3_15m = calculateATR(highs15m, lows15m, closes15m, 3);
+    const atr14_15m = calculateATR(highs15m, lows15m, closes15m, 14);
+    const macd_15m = calculateMACD(closes15m);
+    const rsi14_15m = calculateRSI(closes15m, 14);
+
+
     // Get last 10 values for intraday series
     const last10MidPrices = closes1m.slice(-10);
     const last10EMA20 = ema20_1m.slice(-10).map((v) => Number(v) || 0);
@@ -248,6 +266,9 @@ export async function getCurrentMarketState(
     // Get last 10 MACD and RSI values for 4-hour timeframe
     const last10MACD4h = macd_4h.slice(-10).map((v) => Number(v) || 0);
     const last10RSI14_4h = rsi14_4h.slice(-10).map((v) => Number(v) || 0);
+
+    const last10MACD15m = macd_15m.slice(-10).map((v) => Number(v) || 0);
+    const last10RSI14_15m = rsi14_15m.slice(-10).map((v) => Number(v) || 0);
 
     // Current values (latest)
     const current_price = Number(closes1m[closes1m.length - 1]) || 0;
@@ -286,6 +307,14 @@ export async function getCurrentMarketState(
       volumes4h.length;
     const currentVolume4h = volumes4h[volumes4h.length - 1];
 
+
+    // Calculate average volume for 4-hour timeframe
+    const averageVolume15m =
+      volumes15m.reduce((sum: number, vol: number) => sum + vol, 0) /
+      volumes15m.length;
+    const currentVolume15m = volumes15m[volumes15m.length - 1];
+
+
     // 构建 K 线数�?- 最�?0根用于趋势分�?
     const buildKlineData = (ohlcv: number[][], count: number = 10): KlineData[] => {
       return ohlcv.slice(-count).map((candle) => {
@@ -305,8 +334,7 @@ export async function getCurrentMarketState(
       });
     };
 
-    // 获取15分钟K线数�?
-    const ohlcv15m = await withRetry(() => fetchKlines("15m", 100));
+
 
     return {
       current_price,
@@ -322,6 +350,16 @@ export async function getCurrentMarketState(
         rsi_7: last10RSI7,
         rsi_14: last10RSI14,
       },
+      short_term: {
+          ema_20: Number(ema20_15m[ema20_15m.length - 1]) || 0,
+          ema_50: Number(ema50_15m[ema50_15m.length - 1]) || 0,
+          atr_3: Number(atr3_15m[atr3_4h.length - 1]) || 0,
+          atr_14: Number(atr14_15m[atr14_15m.length - 1]) || 0,
+          current_volume: currentVolume15m,
+          average_volume: averageVolume15m,
+          macd: last10MACD15m,
+          rsi_14: last10RSI14_15m,
+        },
       longer_term: {
         ema_20: Number(ema20_4h[ema20_4h.length - 1]) || 0,
         ema_50: Number(ema50_4h[ema50_4h.length - 1]) || 0,
@@ -360,33 +398,38 @@ export function formatMarketState(symbol: string, state: MarketState): string {
 
   return `## ALL ${symbol} DATA
 
-I. Real-time Indicators
-current_price: ${state.current_price}
-current_ema20: ${state.current_ema20.toFixed(3)}
-current_macd: ${state.current_macd.toFixed(3)}
-current_rsi (7 period): ${state.current_rsi.toFixed(3)}
-Open Interest (Latest): ${state.open_interest.latest.toFixed(2)}
-Open Interest (Average): ${state.open_interest.average.toFixed(2)}
-Funding Rate: ${state.funding_rate.toExponential(2)}
+    I. Real-time Indicators
+    current_price: ${state.current_price}
+    current_ema20: ${state.current_ema20.toFixed(3)}
+    current_macd: ${state.current_macd.toFixed(3)}
+    current_rsi (7 period): ${state.current_rsi.toFixed(3)}
+    Open Interest (Latest): ${state.open_interest.latest.toFixed(2)}
+    Open Interest (Average): ${state.open_interest.average.toFixed(2)}
+    Funding Rate: ${state.funding_rate.toExponential(2)}
 
-II. Intraday Series Indicators (3-minute intervals, oldest �?newest)
-Mid prices: [${state.intraday.mid_prices.map((v) => v.toFixed(1)).join(", ")}]
-EMA indicators (20-period): [${state.intraday.ema_20.map((v) => v.toFixed(3)).join(", ")}]
-MACD indicators: [${state.intraday.macd.map((v) => v.toFixed(3)).join(", ")}]
-RSI indicators (7-Period): [${state.intraday.rsi_7.map((v) => v.toFixed(3)).join(", ")}]
-RSI indicators (14-Period): [${state.intraday.rsi_14.map((v) => v.toFixed(3)).join(", ")}]
 
-III. Longer-term Context Indicators (4-hour timeframe)
-20-Period EMA: ${state.longer_term.ema_20.toFixed(3)}
-50-Period EMA: ${state.longer_term.ema_50.toFixed(3)}
-3-Period ATR: ${state.longer_term.atr_3.toFixed(3)}
-14-Period ATR: ${state.longer_term.atr_14.toFixed(3)}
-Current Volume: ${state.longer_term.current_volume.toFixed(3)}
-Average Volume: ${state.longer_term.average_volume.toFixed(3)}
-MACD indicators: [${state.longer_term.macd.map((v) => v.toFixed(3)).join(", ")}]
-RSI indicators (14-Period): [${state.longer_term.rsi_14.map((v) => v.toFixed(3)).join(", ")}]
-${formatKlines(state.kline_data.minute_1, "1-Minute")}
-${formatKlines(state.kline_data.minute_15, "15-Minute")}
-${formatKlines(state.kline_data.hour_4, "4-Hour")}
-`.trim();
+    II. short-term Context Indicators (15m timeframe)
+    20-Period EMA: ${state.short_term.ema_20.toFixed(3)}
+    50-Period EMA: ${state.short_term.ema_50.toFixed(3)}
+    3-Period ATR: ${state.short_term.atr_3.toFixed(3)}
+    14-Period ATR: ${state.short_term.atr_14.toFixed(3)}
+    Current Volume: ${state.short_term.current_volume.toFixed(3)}
+    Average Volume: ${state.short_term.average_volume.toFixed(3)}
+    MACD indicators: [${state.short_term.macd.map((v) => v.toFixed(3)).join(", ")}]
+    RSI indicators (14-Period): [${state.short_term.rsi_14.map((v) => v.toFixed(3)).join(", ")}]
+
+    III. Longer-term Context Indicators (4-hour timeframe)
+    20-Period EMA: ${state.longer_term.ema_20.toFixed(3)}
+    50-Period EMA: ${state.longer_term.ema_50.toFixed(3)}
+    3-Period ATR: ${state.longer_term.atr_3.toFixed(3)}
+    14-Period ATR: ${state.longer_term.atr_14.toFixed(3)}
+    Current Volume: ${state.longer_term.current_volume.toFixed(3)}
+    Average Volume: ${state.longer_term.average_volume.toFixed(3)}
+    MACD indicators: [${state.longer_term.macd.map((v) => v.toFixed(3)).join(", ")}]
+    RSI indicators (14-Period): [${state.longer_term.rsi_14.map((v) => v.toFixed(3)).join(", ")}]
+
+
+    ${formatKlines(state.kline_data.minute_15, "15-Minute")}
+    ${formatKlines(state.kline_data.hour_4, "4-Hour")}
+    `.trim();
 }
